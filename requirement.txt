@@ -1,0 +1,5 @@
+keyboard==0.13.5
+nrf24==2.0.0
+pigpio==1.78
+pyrf24==0.4.5
+sshkeyboard==2.3.1
