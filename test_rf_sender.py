@@ -8,6 +8,7 @@ if not radio.begin():
     exit()
 
 # ⚡ Tăng công suất phát & đặt tốc độ dữ liệu khớp với Arduino
+radio.setAutoAck(1)
 radio.setPALevel(RF24_PA_MAX)  # Mạnh nhất
 radio.setDataRate(RF24_250KBPS)  # Để xa & ổn định hơn
 radio.setRetries(5, 15)  # 5 lần thử, cách nhau 15*250us

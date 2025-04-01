@@ -76,16 +76,16 @@ class RobotControl:
         # self.weapon = weapon
         self.rf_comm = rf_comm
 
-    def _validate_speed(self, speed: int) -> bool:
+    def _validate_value(self, value: int) -> bool:
         """ """
-        return -100 <= speed <= 100
+        return -100 <= value <= 100
 
     def move(self, left_speed: int, right_speed: int = None):
         """ Move the robot with one or two speed values. """
         if right_speed is None:  # If only one speed is given, apply it to both wheels
             right_speed = left_speed
 
-        if not self._validate_speed(left_speed) or not self._validate_speed(right_speed):
+        if not self._validate_value(left_speed) or not self._validate_value(right_speed):
             return
 
         command = f"move({left_speed},{right_speed})"
@@ -94,7 +94,7 @@ class RobotControl:
 
     def rotate(self, speed: int):
         """ """
-        if not self._validate_speed(speed):
+        if not self._validate_value(speed):
             return
         command = f"rotate({speed})"
         self.rf_comm.send(command)
@@ -104,3 +104,73 @@ class RobotControl:
             return
         command = f"toggle_weapon({value})"
         self.rf_comm.send(command)
+
+    def start(self):
+        command = f"start()"
+        self.rf_comm.send(command)
+
+    def stop(self):
+        command = f"stop()"
+        self.rf_comm.send(command)
+    
+    def weapon1(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon1({value})"
+        self.rf_comm.send(command)
+    
+    def weapon2(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon2({value})"
+        self.rf_comm.send(command)
+
+    def weapon3(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon3({value})"
+        self.rf_comm.send(command)
+
+    def weapon4(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon4({value})"
+        self.rf_comm.send(command)
+    
+    def weapon5(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon5({value})"
+        self.rf_comm.send(command)
+
+    def weapon6(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon6({value})"
+        self.rf_comm.send(command)
+
+    def weapon7(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon7({value})"
+        self.rf_comm.send(command)
+
+    def weapon8(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon8({value})"
+        self.rf_comm.send(command)
+
+    def weapon9(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon9({value})"
+        self.rf_comm.send(command)
+
+    def weapon10(self, value: int):
+        if not self._validate_value(value):
+            return
+        command = f"weapon10({value})"
+        self.rf_comm.send(command)
+
+    

@@ -19,6 +19,35 @@ def press(key):
         robot.rotate(100)
     
 
+    if key == '1':
+        robot.start()
+    if key == '2':
+        robot.stop()
+    if key == '3':
+        robot.weapon1(20)
+    if key == '4':
+        robot.weapon2(100)
+    if key == '5':
+        robot.weapon3(-10)
+    if key == '6':
+        robot.weapon4(30)
+    if key == '7':
+        robot.weapon5(40)
+    if key == '8':
+        robot.weapon6(-100)
+    if key == '9':
+        robot.weapon7(-10)
+    if key == '0':
+        robot.weapon8(-30)
+    if key == 'p':
+        robot.weapon9(-50)
+    if key == 'o':
+        robot.weapon10(50)
+    if key == 't':
+        robot.weapon10(200)
+
+    
+
 
 
 def release(key):
