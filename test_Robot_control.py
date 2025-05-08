@@ -1,71 +1,57 @@
 from time import sleep
-from Robot_control import RobotControl
 from Robot_control import RFComm
 from sshkeyboard import listen_keyboard
+import struct
+import random
+
+import struct
+
+
+def create_fake_data_without_checksum():
+    robot_id = 11223
+    status = 1
+    axis0, axis1, axis2, axis3 = 100, -200, 300, -400
+    buttons = [1]*17  
+
+
+    packed = struct.pack("<IBhhhh17B", robot_id, status, axis0, axis1, axis2, axis3, *buttons)
+    return list(packed)  
 
 
 
-rf24 = RFComm()
-robot = RobotControl(rf24)
+fake_data = create_fake_data_without_checksum()
+# print("fake data", list(fake_data))
+
+rf24 = RFComm(channel=64, address=b'11223', rx_pipe_address=b"11223")
+
+packet_with_checksum = rf24.sync_data(fake_data)
+# print("sync data",packet_with_checksum)
+packet_bytes = bytearray(packet_with_checksum)
+parsed_data = []
 def press(key):
     print(f"'{key}' pressed")
-    if key == 'up' or key == 'w':
-        robot.move(100)
-    if key == 'down' or key == 'x':
-        robot.move(-100)
-    if key == 'left' or key == 'a':
-        robot.rotate(-100)
-    if key == 'right' or key == 'd':
-        robot.rotate(100)
+    if key in ['up', 'w']:
+        if rf24.send(packet_bytes):
+            sleep(0.05)  # 
+            if rf24.isDataAvailable():
+                data = rf24.read_data()
+                # print(type(data))
+                if data:
+                    try:
+                        parsed_data = rf24.parse_receive_data(data)
+                        print("📦 Parsed data:", parsed_data)
+                    except ValueError as e:
+                        print("❌ Error parsing data:", e)
+                else:
+                    print("❌ No data received")
+                # print("🔁 Echo received:", data)
+            else:
+                print("❌ No echo received")
     
-
-    if key == '1':
-        robot.start()
-    if key == '2':
-        robot.stop()
-    if key == '3':
-        robot.weapon1(20)
-    if key == '4':
-        robot.weapon2(100)
-    if key == '5':
-        robot.weapon3(-10)
-    if key == '6':
-        robot.weapon4(30)
-    if key == '7':
-        robot.weapon5(40)
-    if key == '8':
-        robot.weapon6(-100)
-    if key == '9':
-        robot.weapon7(-10)
-    if key == '0':
-        robot.weapon8(-30)
-    if key == 'p':
-        robot.weapon9(-50)
-    if key == 'o':
-        robot.weapon10(50)
-    if key == 't':
-        robot.weapon10(200)
-
-    
-
-
-
 def release(key):
     print(f"'{key}' released")
 
-
-
-
-while True:
-    # robot.move(100)
-    # robot.rotate(50)
-    # robot.toggle_weapon(1)
-    # sleep(1)
-    # robot.move(100, 50)
-    # robot.rotate(30)
-    # robot.toggle_weapon(0)
-    # sleep(1)
-    listen_keyboard(
+listen_keyboard(
     on_press=press,
     on_release=release,
 )

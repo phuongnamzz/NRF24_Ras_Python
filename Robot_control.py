@@ -1,176 +1,111 @@
 
-from pyrf24 import RF24, RF24_PA_MAX,RF24_250KBPS
+from pyrf24 import RF24, RF24_PA_MAX, RF24_250KBPS
+import struct
 
 class RFComm:
-    def __init__(self, ce_pin=22, csn_pin=0, address=b"00001", role="TX"):
-        """ 
-        """
+    def __init__(self, channel, address, ce_pin=22, csn_pin=0, role="RX", rx_pipe_address=None):
         self.radio = RF24(ce_pin, csn_pin)
         if not self.radio.begin():
             raise RuntimeError("❌ NRF24 initialization failed!")
 
+        self.rx_pipe_address = rx_pipe_address or address
         self.radio.setPALevel(RF24_PA_MAX)
         self.radio.setDataRate(RF24_250KBPS)
         self.radio.setRetries(5, 15)
         self.address = address
         self.role = role.upper()
+        self.radio.setChannel(channel)
 
         if self.role == "TX":
-            self.radio.openWritingPipe(self.address)
-            self.radio.stopListening()
+            self.set_tx_role()
         elif self.role == "RX":
-            self.radio.openReadingPipe(0, self.address)
-            self.radio.startListening()
+            self.set_rx_role()
         else:
             raise ValueError("❌ Role must be 'TX' or 'RX'")
 
-    def send(self, message: str):
-        """ 
-        """
-        if self.role != "TX":
-            raise RuntimeError("❌ This module is in RX mode, cannot send!")
+    def set_tx_role(self):
+        self.radio.openWritingPipe(self.address)
+        self.radio.stopListening()
 
-        msg_bytes = message.encode()
-        print(f"📡 Sending: {message}")
+    def set_rx_role(self):
+        self.radio.openReadingPipe(1, self.rx_pipe_address)
+        self.radio.startListening()
 
-        if self.radio.write(msg_bytes):
+    @staticmethod
+    def cal_checksum(datas):
+        if not datas or not isinstance(datas, list):
+            raise ValueError("Input must be a non-empty list")
+        return sum(datas) & 0xFF
+
+    def sync_data(self, datas):
+        if not datas or len(datas) > 31:  # chỉ được tối đa 32 byte, 1 byte dành cho checksum
+            print("❌ Invalid data length")
+            return None
+
+        checksum_value = self.cal_checksum(datas)
+        datas.append(checksum_value)
+        # print(f"📦 Data (with checksum): {datas}")
+
+        return datas
+
+    @staticmethod
+    def parse_receive_data(data_bytes):
+        if len(data_bytes) != 17:
+            raise ValueError("Invalid packet length")
+        
+        unpacked = struct.unpack("<IBBBhh5bB", data_bytes)
+        checksum_value = RFComm.cal_checksum(list(data_bytes[:16]))
+
+        # print(f"Checksum (calculated): {checksum_value}")
+        # print(f"Checksum (packet): {unpacked[11]}")
+
+        if unpacked[11] != checksum_value:
+            raise ValueError("Checksum mismatch")
+
+        return {
+            "robot_id": unpacked[0],
+            "status": unpacked[1],
+            "error": unpacked[2],
+            "battery": unpacked[3],
+            "L_wheel": unpacked[4],
+            "R_wheel": unpacked[5],
+            "weapon": list(unpacked[6:11]),
+            "checksum": unpacked[11]
+        }
+
+    def send(self, data_bytes: bytearray):
+        if self.role != 'TX':
+            self.set_tx_role()
+            self.role = 'TX'
+
+        print(f"📡 Sending bytes: {list(data_bytes)}")
+        success = self.radio.write(data_bytes)
+
+        if success:
             print("✅ Sent successfully!")
-            return True
         else:
             print("❌ Send failed!")
-            return False
 
-    def receive(self):
-        """ 
-        """
-        if self.role != "RX":
-            raise RuntimeError("❌ This module is in TX mode, cannot receive!")
+        self.set_rx_role()
+        self.role = 'RX'
 
-        if self.radio.available():
-            received_msg = bytearray(32)
-            self.radio.read(received_msg, len(received_msg))
-            message = received_msg.decode().strip("\x00")
-            print(f"📥 Received: {message}")
-            return message
-        return None
+        return success
 
+    def read_data(self):
+        if self.role != 'RX':
+            self.set_rx_role()
+            self.role = 'RX'
 
+        received_msg = self.radio.read(17)  
+        # print(f"📥 Raw bytes received: {list(received_msg)}")
 
-"""
-move(left_motor_speed, right_motor_speed): dieu khien doc lap tung banh xe
-move(speed): dieu khien 2 banh xe tien lui
-rotate(speed): dk xoay trai phai
-toggle_weapon(value): bat/tat vu khi
-
-minh thong nhat speed: -100 / 0 / 100
-weapon value chac 0 / 1 hoac 0 / 100
-"""
+        return received_msg
 
 
-class RobotControl:
-    # def __init__(self, left_motor: True, right_motor: True, weapon : True, rf_comm: RFComm):
-    def __init__(self,  rf_comm: RFComm):
-        """ """
-        # self.lef_motor = left_motor
-        # self.right_motor = right_motor
-        # self.weapon = weapon
-        self.rf_comm = rf_comm
-
-    def _validate_value(self, value: int) -> bool:
-        """ """
-        return -100 <= value <= 100
-
-    def move(self, left_speed: int, right_speed: int = None):
-        """ Move the robot with one or two speed values. """
-        if right_speed is None:  # If only one speed is given, apply it to both wheels
-            right_speed = left_speed
-
-        if not self._validate_value(left_speed) or not self._validate_value(right_speed):
-            return
-
-        command = f"move({left_speed},{right_speed})"
-        self.rf_comm.send(command)
+    def isDataAvailable(self):
+        if self.role != 'RX':
+            self.set_rx_role()
+            self.role = 'RX'
+        return self.radio.available()
 
 
-    def rotate(self, speed: int):
-        """ """
-        if not self._validate_value(speed):
-            return
-        command = f"rotate({speed})"
-        self.rf_comm.send(command)
-
-    def toggle_weapon(self, value: bool):
-        if isinstance(value, bool):
-            return
-        command = f"toggle_weapon({value})"
-        self.rf_comm.send(command)
-
-    def start(self):
-        command = f"start()"
-        self.rf_comm.send(command)
-
-    def stop(self):
-        command = f"stop()"
-        self.rf_comm.send(command)
-    
-    def weapon1(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon1({value})"
-        self.rf_comm.send(command)
-    
-    def weapon2(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon2({value})"
-        self.rf_comm.send(command)
-
-    def weapon3(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon3({value})"
-        self.rf_comm.send(command)
-
-    def weapon4(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon4({value})"
-        self.rf_comm.send(command)
-    
-    def weapon5(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon5({value})"
-        self.rf_comm.send(command)
-
-    def weapon6(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon6({value})"
-        self.rf_comm.send(command)
-
-    def weapon7(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon7({value})"
-        self.rf_comm.send(command)
-
-    def weapon8(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon8({value})"
-        self.rf_comm.send(command)
-
-    def weapon9(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon9({value})"
-        self.rf_comm.send(command)
-
-    def weapon10(self, value: int):
-        if not self._validate_value(value):
-            return
-        command = f"weapon10({value})"
-        self.rf_comm.send(command)
-
-    

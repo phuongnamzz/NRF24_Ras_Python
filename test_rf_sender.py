@@ -12,9 +12,9 @@ radio.setAutoAck(1)
 radio.setPALevel(RF24_PA_MAX)  # Mạnh nhất
 radio.setDataRate(RF24_250KBPS)  # Để xa & ổn định hơn
 radio.setRetries(5, 15)  # 5 lần thử, cách nhau 15*250us
-radio.openWritingPipe(b"00001")  # Địa chỉ phải khớp với Arduino
+radio.openWritingPipe(b"00009")  # Địa chỉ phải khớp với Arduino
 radio.stopListening()
-
+radio.setChannel(76)
 while True:
     msg = b"ON"
     print("📤 Đang gửi:", msg.decode())
