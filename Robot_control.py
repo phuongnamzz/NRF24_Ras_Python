@@ -1,4 +1,3 @@
-
 from pyrf24 import RF24, RF24_PA_MAX, RF24_250KBPS
 import struct
 
@@ -38,27 +37,25 @@ class RFComm:
         return sum(datas) & 0xFF
 
     def sync_data(self, datas):
-        if not datas or len(datas) > 31:  # chỉ được tối đa 32 byte, 1 byte dành cho checksum
+        # check length data only 31 byte include checksum
+        if not datas or len(datas) > 31:
             print("❌ Invalid data length")
             return None
 
         checksum_value = self.cal_checksum(datas)
-        datas.append(checksum_value)
-        # print(f"📦 Data (with checksum): {datas}")
-
+        datas.append(checksum_value)  # add checksum at end
         return datas
 
     @staticmethod
     def parse_receive_data(data_bytes):
+        # check length of received data
         if len(data_bytes) != 17:
             raise ValueError("Invalid packet length")
         
-        unpacked = struct.unpack("<IBBBhh5bB", data_bytes)
+        unpacked = struct.unpack("<IBBBhh5bB", data_bytes)  # unpack with format "<IBBBhh5bB"
         checksum_value = RFComm.cal_checksum(list(data_bytes[:16]))
 
-        # print(f"Checksum (calculated): {checksum_value}")
-        # print(f"Checksum (packet): {unpacked[11]}")
-
+        # check checksum
         if unpacked[11] != checksum_value:
             raise ValueError("Checksum mismatch")
 
@@ -73,7 +70,31 @@ class RFComm:
             "checksum": unpacked[11]
         }
 
-    def send(self, data_bytes: bytearray):
+    def prepare_data_to_send(self, data_bytes):
+        # check data to send
+        if isinstance(data_bytes, bytearray):
+            data_bytes = list(data_bytes)
+
+        packet_with_checksum = self.sync_data(data_bytes)
+        if packet_with_checksum is None:
+            print("❌ Failed to prepare packet: sync_data() returned None")
+            return None
+
+        return bytearray(packet_with_checksum)
+
+    def send(self, data_bytes):
+        # check data to send
+        packet_with_checksum = self.sync_data(data_bytes)
+        if packet_with_checksum is None:
+            print("❌ Cannot send: sync_data returned None")
+            return False
+        packet_bytes = bytearray(packet_with_checksum)
+        # print("📡 Packet to send:", list(packet_bytes))
+
+        return self.sendSafe(packet_bytes)
+
+    def sendSafe(self, data_bytes):
+        # change to tx role and send
         if self.role != 'TX':
             self.set_tx_role()
             self.role = 'TX'
@@ -92,20 +113,17 @@ class RFComm:
         return success
 
     def read_data(self):
+        # change to rx role and read
         if self.role != 'RX':
             self.set_rx_role()
             self.role = 'RX'
 
-        received_msg = self.radio.read(17)  
-        # print(f"📥 Raw bytes received: {list(received_msg)}")
-
+        received_msg = self.radio.read(17)
         return received_msg
 
-
     def isDataAvailable(self):
+        # check if data avaolable
         if self.role != 'RX':
             self.set_rx_role()
             self.role = 'RX'
         return self.radio.available()
-
-
